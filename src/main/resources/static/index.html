@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess help me</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 40px;
+            font-family: Arial, sans-serif;
+            background: #fff;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .topbar {
+            width: 400px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #444;
+        }
+
+        .turn-pill {
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #f2f2f2;
+            font-weight: 600;
+        }
+
+        .board-shell {
+            position: relative;
+            width: 400px;
+        }
+
+        #board {
+            width: 400px;
+        }
+
+        .board-shell.thinking #board {
+            pointer-events: none;
+            filter: brightness(0.92);
+        }
+
+        .thinking-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.35);
+            backdrop-filter: blur(1px);
+            border-radius: 2px;
+        }
+
+        .board-shell.thinking .thinking-overlay {
+            display: flex;
+        }
+
+        .thinking-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(30, 30, 30, 0.88);
+            color: white;
+            font-size: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .selected-square {
+            box-shadow: inset 0 0 0 4px rgba(0, 128, 255, 0.6);
+        }
+
+        .highlight::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 18px;
+            height: 18px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 50%;
+        }
+
+        .highlight-capture::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            background-color: red;
+            border-radius: 50%;
+            opacity: 0.7;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        #resetBtn {
+            padding: 6px 12px;
+            font-size: 14px;
+            background-color: #9f7200;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #resetBtn:hover {
+            background-color: #7a5600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <div class="topbar">
+            <div id="statusText">Your move</div>
+            <div id="turnPill" class="turn-pill">White to move</div>
+        </div>
+
+        <div id="boardShell" class="board-shell">
+            <div id="board"></div>
+
+            <div class="thinking-overlay" id="thinkingOverlay">
+                <div class="thinking-card">
+                    <div class="spinner"></div>
+                    <div>Black is thinking...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="resetBtn" onclick="resetGame()">Reset Game</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/chess';
+
+        let board = null;
+        let selectedSquare = null;
+        let possibleMoves = [];
+        let isThinking = false;
+        let currentTurn = 'white';
+
+        function squareEl(square) {
+            return $('#board .square-' + square);
+        }
+
+        function setStatus(text, turnText) {
+            $('#statusText').text(text);
+            $('#turnPill').text(turnText);
+        }
+
+        function setThinking(loading) {
+            isThinking = loading;
+            $('#boardShell').toggleClass('thinking', loading);
+
+            if(loading == 'checkmate'){
+                setStatus('You win! Black is checkmated.', 'Game over');
+            } else if(loading == 'stalemate') {
+                setStatus('It\'s a draw! Stalemate reached.', 'Game over');
+            } else if (loading) {
+                setStatus('Black is thinking...', 'Black to move');
+            } else {
+                setStatus('Your move', 'White to move');
+            }
+        }
+
+        function clearHighlights() {
+            $('#board .square-55d63').removeClass('highlight highlight-capture selected-square');
+        }
+
+        function clearSelection() {
+            selectedSquare = null;
+            possibleMoves = [];
+            clearHighlights();
+        }
+
+        function resetGame() {
+            setThinking(true);
+
+            fetch(`${API_BASE}/reset`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    board.position(data.fen);
+                    clearSelection();
+                    currentTurn = 'white';
+                    setThinking(false);
+                })
+                .catch(err => {
+                    console.error(err);
+                    clearSelection();
+                    setThinking(false);
+                });
+        }
+
+        function loadMoves(square) {
+            if (isThinking || currentTurn !== 'white') return;
+
+            fetch(`${API_BASE}/moves?square=${square}`)
+                .then(res => res.json())
+                .then(moves => {
+                    possibleMoves = [];
+                    clearHighlights();
+
+                    moves.forEach(m => {
+                        const sq = m.slice(0, 2).toLowerCase();
+                        possibleMoves.push(sq);
+
+                        if (m.endsWith('@')) {
+                            squareEl(sq).addClass('highlight');
+                        } else if (m.endsWith('#')) {
+                            squareEl(sq).addClass('highlight-capture');
+                        }
+                    });
+
+                    selectedSquare = square;
+                    squareEl(square).addClass('selected-square');
+                })
+                .catch(err => {
+                    console.error(err);
+                    clearSelection();
+                });
+        }
+
+        function makeMove(from, to) {
+            if (isThinking) return;
+
+            setThinking(true);
+
+            fetch(`${API_BASE}/move`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from, to })
+            })
+                .then(res => res.json())
+                .then(async data => {
+                    if (data.valid) {
+                        board.position(data.fen);
+                        clearSelection();
+                        currentTurn = 'black';
+
+                        await new Promise(r => setTimeout(r, 500));
+                        await makeBlackMove();
+                    } else {
+                        clearSelection();
+                        setThinking(false);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    clearSelection();
+                    setThinking(false);
+                });
+        }
+
+        async function makeBlackMove() {
+            try {
+                const res = await fetch(`${API_BASE}/best-move-black`);
+                const data = await res.json();
+
+                if (data.valid) {
+                    board.position(data.fen);
+                    currentTurn = 'white';
+                    setThinking(false);
+                } else if (data.valid == false && data.status === 'checkmate') {
+                    setStatus('You win! Black is checkmated.', 'Game over');
+                    setThinking('checkmate');
+                } else if (data.valid == false && data.status === 'stalemate') {
+                    setStatus('It\'s a draw! Stalemate reached.', 'Game over');
+                    setThinking('stalemate');
+                }
+            } catch (err) {
+                console.error("Black move error:", err);
+                currentTurn = 'white';
+                setThinking(false);
+            }
+        }
+
+        function getPieceColorOnSquare(square) {
+            const img = squareEl(square).find('img').attr('src') || '';
+            if (img.includes('/b') || img.includes('\\b') || /\/b[A-Za-z]/.test(img)) return 'black';
+            if (img.includes('/w') || img.includes('\\w') || /\/w[A-Za-z]/.test(img)) return 'white';
+            return null;
+        }
+
+        function onSquareClick(event) {
+            if (isThinking || currentTurn !== 'white') return;
+
+            const className = $(event.currentTarget).attr('class') || '';
+            const match = className.match(/square-([a-h][1-8])/);
+            if (!match) return;
+
+            const square = match[1];
+            const hasPiece = $(event.currentTarget).find('img').length > 0;
+            const pieceColor = hasPiece ? getPieceColorOnSquare(square) : null;
+
+            if (!selectedSquare) {
+                if (!hasPiece) return;
+                if (pieceColor !== 'white') return;
+                loadMoves(square);
+                return;
+            }
+
+            if (square === selectedSquare) {
+                clearSelection();
+                return;
+            }
+
+            if (possibleMoves.includes(square)) {
+                makeMove(selectedSquare, square);
+                return;
+            }
+
+            clearSelection();
+
+            if (hasPiece && pieceColor === 'white') {
+                loadMoves(square);
+            }
+        }
+
+        board = Chessboard('board', {
+            draggable: false,
+            position: 'start',
+            pieceTheme: '/wikipedia/{piece}.png'
+        });
+
+        $('#board').on('click', '[class*="square-"]', onSquareClick);
+
+        window.addEventListener('load', async () => {
+            await resetGame();
+        });
+    </script>
+</body>
+</html>

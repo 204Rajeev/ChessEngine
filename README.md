@@ -163,7 +163,7 @@ System.out.println(perft(brd, 4, Color.WHITE)); // expected: 197281
 
 ## Tech Stack
 
-- **Java 24**
+- **Java 17**
 - **Spring Boot 3.4.5**
 - **chessboard.js 1.0.0**
 - **jQuery 3.6.0**

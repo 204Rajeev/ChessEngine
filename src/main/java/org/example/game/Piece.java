@@ -8,7 +8,7 @@ import java.util.List;
 public abstract class Piece {
 
 
-    private final Position pos;
+    private Position pos;
     private final Color color;
 
     public Piece(Position pos, Color color){
@@ -19,6 +19,10 @@ public abstract class Piece {
 
     public Position getPos() {
         return pos;
+    }
+
+    public void setPos(Position pos){
+        this.pos = pos;
     }
 
     public Color getColor() {

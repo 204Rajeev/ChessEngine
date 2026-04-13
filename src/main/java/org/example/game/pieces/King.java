@@ -34,7 +34,7 @@ public class King extends Piece implements Movement {
 
         if (p1 != null || p2 != null) return false;
 
-        Position kingPos  = this.getColor() == Color.WHITE ? Position.of('e', 1) : Position.of('e', 8);
+        Position kingPos  = this.getPos();
         Position interPos = this.getColor() == Color.WHITE ? Position.of('f', 1) : Position.of('f', 8);
         Position destPos  = this.getColor() == Color.WHITE ? Position.of('g', 1) : Position.of('g', 8);
 
@@ -65,7 +65,7 @@ public class King extends Piece implements Movement {
 
         if (p1 != null || p2 != null || p3 != null) return false;
 
-        Position kingPos  = this.getColor() == Color.WHITE ? Position.of('e', 1) : Position.of('e', 8);
+        Position kingPos  = this.getPos();
         Position interPos = this.getColor() == Color.WHITE ? Position.of('d', 1) : Position.of('d', 8);
         Position destPos  = this.getColor() == Color.WHITE ? Position.of('c', 1) : Position.of('c', 8);
 
@@ -79,13 +79,13 @@ public class King extends Piece implements Movement {
         Piece capturedPiece = board.getPiece(end);
         Position savedEpTarget = board.getEnPassantTarget();
 
-        // save rook state for castling undo
         Position rookFrom = null, rookTo = null;
         Piece savedRook = null;
         int rank = start.getRank();
 
         board.placePiece(start, null);
         this.hasMoved = true;
+        this.setPos(end);
         board.placePiece(end, this);
 
         // kingside castling
@@ -111,20 +111,18 @@ public class King extends Piece implements Movement {
         }
 
         board.setEnPassantTarget(null);
-
         return new MoveState(this, capturedPiece, savedEpTarget,
                 null, null, false, rookFrom, rookTo, savedRook);
-//                  ↑ add false — King never uses savedIsFirstMove
     }
 
     @Override
     public void undo(Board board, Position start, Position end, MoveState state) {
-        this.hasMoved = false;              // restore hasMoved
-        board.placePiece(start, this);      // restore king to start
-        board.placePiece(end, state.capturedPiece); // restore captured piece
-        board.setEnPassantTarget(state.enPassantTarget); // restore ep target
+        this.hasMoved = false;
+        this.setPos(start);
+        board.placePiece(start, this);
+        board.placePiece(end, state.capturedPiece);
+        board.setEnPassantTarget(state.enPassantTarget);
 
-        // restore rook if castling occurred
         if (state.rookFrom != null) {
             board.placePiece(state.rookTo, null);
             board.placePiece(state.rookFrom, state.savedRook);

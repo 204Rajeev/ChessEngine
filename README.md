@@ -169,12 +169,3 @@ System.out.println(perft(brd, 4, Color.WHITE)); // expected: 197281
 - **jQuery 3.6.0**
 
 ---
-
-## Roadmap
-
-- [ ] Zobrist hashing for effective transposition table
-- [ ] Iterative deepening
-- [ ] Quiescence search
-- [ ] UCI protocol support
-- [ ] Engine vs engine self-play
-- [ ] Opening book integration
